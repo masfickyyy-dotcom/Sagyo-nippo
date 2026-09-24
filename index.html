@@ -1,2 +1,98 @@
 <!doctype html>
-<html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b6bcb"><meta name="description" content="作業日報 Ninku"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg"><link rel="stylesheet" href="styles.css"><title>作業日報 Ninku</title></head><body><header class="app-header"><div class="brand"><span class="brand-mark">N</span><div><h1>作業日報 <small>Ninku</small></h1><p>毎日の作業を、かんたんに記録</p></div></div></header><main class="container"><nav class="tabs"><button class="tab active" data-tab="entry">① 入力</button><button class="tab" data-tab="summary">② まとめ</button><button class="tab" data-tab="settings">③ 工程・設定</button></nav><section id="entry" class="panel active"><div class="section-heading"><div><h2>作業を記録</h2><p>入力内容はこの端末に自動保存されます</p></div><span class="status-dot">● 保存済み</span></div><form id="workForm" class="card form-grid"><input type="hidden" id="editId"><label>日付<input id="date" type="date" required></label><label>現場<select id="site" required></select></label><label>作業者<select id="worker" required></select></label><label>作業（種類）<select id="process" required></select></label><label>人数<input id="people" type="number" min="1" value="1" required></label><label>作業時間（時間）<input id="hours" type="number" min="0" step="0.25" value="7" required></label><label>使用人工（ninku）<input id="ninku" type="number" min="0" step="0.01" placeholder="人数×時間÷7で自動入力"></label><label class="wide">備考<textarea id="note" rows="3" placeholder="作業内容や連絡事項"></textarea></label><div class="form-actions wide"><button class="primary" type="submit">記録を保存</button><button id="cancelEdit" class="secondary" type="button" hidden>編集をキャンセル</button></div></form><div class="tip">💡 使用人工を空欄にすると「人数 × 作業時間 ÷ 7」で計算します。</div><div id="entryWarning"></div><div id="recentEntries"></div></section><section id="summary" class="panel"><div class="section-heading"><div><h2>作業のまとめ</h2><p id="summaryPeriod"></p></div><button id="exportCsv" class="primary small">CSV出力</button></div><div class="stats"><div class="stat"><span>記録件数</span><b id="totalCount">0</b><small>件</small></div><div class="stat"><span>合計人工</span><b id="totalManDays">0</b><small>人工</small></div><div class="stat"><span>合計時間</span><b id="totalHours">0</b><small>時間</small></div></div><div id="summaryAlerts"></div><div class="card table-wrap"><h3>現場・作業別の使用状況</h3><table><thead><tr><th>現場</th><th>作業</th><th>目標人工</th><th>使用済み</th><th>残り</th><th>状態</th></tr></thead><tbody id="usageTable"></tbody></table><p id="emptyUsage" class="empty">まだ記録がありません。</p></div><div class="card table-wrap"><h3>記録一覧</h3><table><thead><tr><th>日付</th><th>現場 / 作業</th><th>作業者</th><th>使用人工</th><th></th></tr></thead><tbody id="entriesTable"></tbody></table></div></section><section id="settings" class="panel"><div class="section-heading"><div><h2>工程・設定</h2><p>計画現場（keikaku genba）と作業ごとの目標人工を設定</p></div></div><div class="card target-card"><h3>計画現場 × 作業（目標人工）</h3><p class="muted">例：現場「kawagoe」・作業「youjo」・目標「15人工」</p><div class="target-form"><select id="targetSite"></select><select id="targetProcess"></select><input id="targetNinku" type="number" min="0" step="0.01" placeholder="目標人工"><button id="saveTarget" class="primary">計画を登録</button></div><ul id="targetsList"></ul></div><div class="settings-grid"><div class="card setting-card"><h3>現場</h3><div class="add-row"><input id="newSite" placeholder="現場名"><button data-add="sites" class="primary">追加</button></div><ul id="sitesList"></ul></div><div class="card setting-card"><h3>作業者</h3><div class="add-row"><input id="newWorker" placeholder="作業者名"><button data-add="workers" class="primary">追加</button></div><ul id="workersList"></ul></div><div class="card setting-card"><h3>作業（種類）</h3><div class="add-row"><input id="newProcess" placeholder="例：youjo"><button data-add="processes" class="primary">追加</button></div><ul id="processesList"></ul></div></div><div class="danger-zone"><h3>データ管理</h3><p>記録と設定をすべて削除します。この操作は元に戻せません。</p><button id="clearData" class="danger">すべてのデータを削除</button></div></section></main><footer>作業日報 Ninku <span>1人工 = 7時間</span></footer><script src="app.js"></script></body></html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b6bcb">
+  <meta name="description" content="作業日報 Ninku - 共通データ共有版">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <title>作業日報 Ninku</title>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand"><span class="brand-mark">N</span><div><h1>作業日報 <small>Ninku</small></h1><p>共有データで作業を管理</p></div></div>
+    <button id="installBtn" class="icon-button" hidden aria-label="アプリをインストール">＋</button>
+  </header>
+
+  <main class="container">
+    <div id="dbNotice" class="notice warning"></div>
+
+    <nav class="tabs" aria-label="メインメニュー">
+      <button class="tab active" data-tab="entry">① 入力</button>
+      <button class="tab" data-tab="summary">② まとめ</button>
+      <button class="tab" data-tab="settings">③ 工程・設定</button>
+    </nav>
+
+    <section id="entry" class="panel active" aria-labelledby="entryTitle">
+      <div class="section-heading"><div><h2 id="entryTitle">作業を記録</h2><p>入力した内容は共有データに保存されます</p></div><span class="status-dot">● 保存済み</span></div>
+      <form id="workForm" class="card form-grid">
+        <input type="hidden" id="editId">
+        <label>日付<input id="date" type="date" required></label>
+        <label>現場<select id="site" required></select></label>
+        <label>作業者<select id="worker" required></select></label>
+        <label>作業（種類）<select id="process" required></select></label>
+        <label>人数<input id="people" type="number" min="1" value="1" required></label>
+        <label>作業時間（時間）<input id="hours" type="number" min="0" step="0.25" value="7" required></label>
+        <label>使用人工（ninku）<input id="ninku" type="number" min="0" step="0.01" placeholder="人数×時間÷7で自動入力"></label>
+        <label class="wide">備考<textarea id="note" rows="3" placeholder="作業内容や連絡事項"></textarea></label>
+        <div class="form-actions wide"><button class="primary" type="submit">記録を保存</button><button id="cancelEdit" class="secondary" type="button" hidden>編集をキャンセル</button></div>
+      </form>
+      <div class="tip">💡 使用人工を空欄にすると「人数 × 作業時間 ÷ 7」で自動計算します。目標超過時は警告が表示されます。</div>
+      <div id="entryWarning"></div>
+      <div id="recentEntries"></div>
+    </section>
+
+    <section id="summary" class="panel" aria-labelledby="summaryTitle">
+      <div class="section-heading"><div><h2 id="summaryTitle">作業のまとめ</h2><p id="summaryPeriod"></p></div><button id="exportCsv" class="primary small">CSV出力</button></div>
+      <div class="stats"><div class="stat"><span>記録件数</span><b id="totalCount">0</b><small>件</small></div><div class="stat"><span>合計人工</span><b id="totalManDays">0</b><small>人工</small></div><div class="stat"><span>合計時間</span><b id="totalHours">0</b><small>時間</small></div></div>
+      <div id="summaryAlerts"></div>
+      <div class="card table-wrap">
+        <h3>現場・作業別の使用状況</h3>
+        <table>
+          <thead><tr><th>現場</th><th>作業</th><th>目標人工</th><th>使用済み</th><th>残り</th><th>状態</th></tr></thead>
+          <tbody id="usageTable"></tbody>
+        </table>
+        <p id="emptyUsage" class="empty">まだ記録がありません。</p>
+      </div>
+      <div class="card table-wrap">
+        <h3>記録一覧</h3>
+        <table>
+          <thead><tr><th>日付</th><th>現場 / 作業</th><th>作業者</th><th>使用人工</th><th></th></tr></thead>
+          <tbody id="entriesTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="settings" class="panel" aria-labelledby="settingsTitle">
+      <div class="section-heading"><div><h2 id="settingsTitle">工程・設定</h2><p>計画現場（keikaku genba）と作業ごとの目標人工を設定</p></div></div>
+
+      <div class="card target-card">
+        <h3>計画現場 × 作業（目標人工）</h3>
+        <p class="muted">例：現場「kawagoe」・作業「youjo」・目標「15人工」</p>
+        <div class="target-form">
+          <select id="targetSite"></select>
+          <select id="targetProcess"></select>
+          <input id="targetNinku" type="number" min="0" step="0.01" placeholder="目標人工">
+          <button id="saveTarget" class="primary">計画を登録</button>
+        </div>
+        <ul id="targetsList"></ul>
+      </div>
+
+      <div class="settings-grid">
+        <div class="card setting-card"><h3>現場</h3><div class="add-row"><input id="newSite" placeholder="現場名"><button data-add="sites" class="primary">追加</button></div><ul id="sitesList"></ul></div>
+        <div class="card setting-card"><h3>作業者</h3><div class="add-row"><input id="newWorker" placeholder="作業者名"><button data-add="workers" class="primary">追加</button></div><ul id="workersList"></ul></div>
+        <div class="card setting-card"><h3>作業（種類）</h3><div class="add-row"><input id="newProcess" placeholder="例：youjo"><button data-add="processes" class="primary">追加</button></div><ul id="processesList"></ul></div>
+      </div>
+
+      <div class="danger-zone"><h3>データ管理</h3><p>記録と設定をすべて削除します。この操作は元に戻せません。</p><button id="clearData" class="danger">すべてのデータを削除</button></div>
+    </section>
+  </main>
+
+  <footer>作業日報 Ninku <span>1人工 = 7時間</span></footer>
+  <script src="app.js"></script>
+</body>
+</html>
