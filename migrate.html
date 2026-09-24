@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pindahkan data lama</title>
+  <style>
+    body{font-family:Arial,sans-serif;max-width:680px;margin:40px auto;padding:20px;line-height:1.6;color:#222}
+    button{background:#0b6bcb;color:white;border:0;border-radius:6px;padding:12px 18px;font-size:16px;cursor:pointer}
+    button:disabled{opacity:.6;cursor:wait}.box{background:#f3f7fb;border-radius:8px;padding:15px;margin:15px 0}#status{white-space:pre-wrap}
+  </style>
+</head>
+<body>
+  <h1>Pindahkan data lama ke Supabase</h1>
+  <div class="box">
+    <p>Halaman ini membaca data lama dari browser ini, lalu menyalin catatan dan target ke Supabase.</p>
+    <p><strong>Jangan hapus data browser dan jangan tutup halaman sampai selesai.</strong></p>
+  </div>
+  <button id="start">Mulai pemindahan</button>
+  <p id="status">Tekan tombol di atas untuk mulai.</p>
+  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const statusEl=document.getElementById('status');
+    const say=m=>statusEl.textContent=m;
+    document.getElementById('start').onclick=async()=>{
+      const btn=document.getElementById('start'); btn.disabled=true;
+      try{
+        if(!window.SUPABASE_URL||!window.SUPABASE_ANON_KEY) throw new Error('Konfigurasi Supabase belum terbaca.');
+        const raw=localStorage.getItem('ninku-v1');
+        if(!raw) throw new Error('Data lama tidak ditemukan di browser ini. Pastikan membuka halaman ini pada browser yang sama dengan aplikasi lama.');
+        const old=JSON.parse(raw);
+        const client=window.supabase.createClient(window.SUPABASE_URL,window.SUPABASE_ANON_KEY);
+        const targets=(old.targets||[]).map(t=>({id:t.id,site:t.site,process:t.process,ninku:Number(t.ninku)||0})).filter(t=>t.id&&t.site&&t.process);
+        const entries=(old.entries||[]).map(e=>({id:e.id,date:e.date,site:e.site,worker:e.worker,process:e.process,people:Number(e.people)||1,hours:Number(e.hours)||0,ninku:Number(e.ninku)||0,note:e.note||''})).filter(e=>e.id&&e.date&&e.site&&e.worker&&e.process);
+        say('Mengirim '+targets.length+' target dan '+entries.length+' catatan...');
+        if(targets.length){const r=await client.from('targets').upsert(targets,{onConflict:'id'});if(r.error)throw r.error;}
+        if(entries.length){const r=await client.from('entries').upsert(entries,{onConflict:'id'});if(r.error)throw r.error;}
+        say('Selesai. '+targets.length+' target dan '+entries.length+' catatan sudah dipindahkan ke Supabase. Sekarang buka aplikasi utama.');
+      }catch(err){console.error(err);say('Gagal: '+(err.message||err)+'\nJangan hapus data lama. Kirimkan pesan error ini.');btn.disabled=false;}
+    };
+  </script>
+</body>
+</html>
