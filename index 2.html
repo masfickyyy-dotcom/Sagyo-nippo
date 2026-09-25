@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#24303B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="作業日報">
+<title>作業日報 Ninku</title>
+<style>
+:root{--bg:#edeDE7;--panel:#fff;--ink:#1d2530;--sub:#5b6472;--line:#d8d6cc;--navy:#24303b;--gold:#c9a227;--ok:#3c7a5a;--danger:#b54a3a}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif}
+body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+header{background:var(--navy);color:#fff;padding:17px 16px 15px;padding-top:calc(17px + env(safe-area-inset-top));position:sticky;top:0;z-index:20}
+header h1{font-size:20px;margin:0}header p{font-size:12px;color:#c7cdd4;margin:4px 0 0}
+main{max-width:700px;margin:auto;padding:14px}
+.view{display:none}.view.active{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:14px;margin-bottom:12px}
+h2{font-size:15px;margin:0 0 12px}.bar{display:inline-block;width:3px;height:15px;background:var(--gold);vertical-align:-2px;margin-right:8px;border-radius:2px}
+label{display:block;font-size:12px;color:var(--sub);margin:10px 0 4px}
+input,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font-size:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font-family:inherit;font-size:14px;font-weight:700;border:0;border-radius:7px;padding:11px;touch-action:manipulation}
+.primary{width:100%;background:var(--navy);color:#fff;margin-top:12px}.secondary{background:var(--bg);color:var(--ink);margin-top:8px}.danger{background:transparent;color:var(--danger);border:1px solid var(--line);padding:6px 9px;font-size:12px}
+.hint{font-size:11px;color:var(--sub);margin-top:7px}.preview{font-size:17px;font-weight:800;margin-top:10px}
+.item{padding:10px 0;border-bottom:1px solid var(--line)}.item:last-child{border-bottom:0}.top{display:flex;justify-content:space-between;gap:8px}.title{font-weight:700}.meta{font-size:12px;color:var(--sub);margin-top:3px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:9px}.stat{background:var(--bg);padding:11px;border-radius:7px}.num{font-size:23px;font-weight:800}.lbl{font-size:11px;color:var(--sub)}
+.progress{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:7px}.fill{height:100%;background:var(--ok)}
+.badge{font-size:11px;background:#e7efe9;color:var(--ok);padding:3px 7px;border-radius:10px;white-space:nowrap;height:max-content}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:100;background:var(--panel);border-top:1px solid var(--line);display:flex;padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:transparent;color:var(--sub);border-radius:0;padding:10px 2px;font-size:12px}
+nav button.active{color:var(--navy);font-weight:800}
+.empty{color:var(--sub);font-size:13px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--navy);color:white;padding:9px 13px;border-radius:20px;font-size:12px;display:none;z-index:200}
+</style>
+</head>
+<body>
+<header><h1>作業日報</h1><p>人工・工程・人員をかんたん管理　｜　1人工 = 7時間</p></header>
+
+<main>
+<section id="view-input" class="view active">
+<div class="card">
+<h2><span class="bar"></span>本日の作業を記録</h2>
+<label>日付</label><input id="date" type="date">
+<label>現場</label><input id="site" type="text" placeholder="例：アーベイン川越">
+<label>作業者</label><input id="worker" type="text" placeholder="例：Rora・Ibnu・Felix">
+<label>工程</label><select id="work"></select>
+<div class="grid">
+<div><label>人数</label><input id="people" type="number" min="0" step="1" placeholder="3"></div>
+<div><label>作業時間（時間）</label><input id="hours" type="number" min="0" step="0.5" value="7"></div>
+</div>
+<label>備考</label><input id="note" type="text" placeholder="例：雨のため午後1時間中断">
+<div id="preview" class="preview"></div>
+<button id="saveLog" class="primary">記録を保存</button>
+<button id="clearForm" class="secondary">入力をクリア</button>
+</div>
+<div class="card"><h2><span class="bar"></span>記録一覧</h2><div id="logList"></div></div>
+</section>
+
+<section id="view-summary" class="view">
+<div class="card">
+<h2><span class="bar"></span>本日の人員状況</h2>
+<div class="stats">
+<div class="stat"><div id="sTotal" class="num">0</div><div class="lbl">総稼働可能人数</div></div>
+<div class="stat"><div id="sUsed" class="num">0</div><div class="lbl">本日使用人数</div></div>
+<div class="stat"><div id="sFree" class="num">0</div><div class="lbl">余剰人数</div></div>
+<div class="stat"><div id="sCount" class="num">0</div><div class="lbl">稼働工程数</div></div>
+</div>
+</div>
+<div class="card"><h2><span class="bar"></span>工程別まとめ</h2><div id="summaryList"></div></div>
+</section>
+
+<section id="view-settings" class="view">
+<div class="card">
+<h2><span class="bar"></span>基本設定</h2>
+<label>総稼働可能人数</label><input id="cfgWorkers" type="number" min="0" step="1">
+<label>1人工の時間</label><input id="cfgHours" type="number" min="1" step="0.5" value="7">
+<button id="saveConfig" class="primary">設定を保存</button>
+</div>
+<div class="card">
+<h2><span class="bar"></span>工程を追加</h2>
+<label>工程名</label><input id="newName" type="text" placeholder="例：天井ローラー">
+<label>目標人工</label><input id="newTarget" type="number" min="0" step="0.01" placeholder="例：12.84">
+<button id="addWork" class="primary">工程を追加</button>
+</div>
+<div class="card"><h2><span class="bar"></span>工程一覧</h2><div id="workList"></div></div>
+<div class="card">
+<h2><span class="bar"></span>データ</h2>
+<button id="export" class="secondary">CSVを書き出す</button>
+<button id="reset" class="secondary">全データを初期化</button>
+<p class="hint">データはこのiPhoneのブラウザ内に保存されます。</p>
+</div>
+</section>
+</main>
+
+<nav id="nav">
+<button type="button" data-view="input" class="active">① 入力</button>
+<button type="button" data-view="summary">② まとめ</button>
+<button type="button" data-view="settings">③ 工程・設定</button>
+</nav>
+<div id="toast" class="toast"></div>
+
+<script>
+(function(){
+'use strict';
+const KEY='ninku-pwa-v2';
+const DEFAULTS=[
+['天井ローラー',12],['天井ダメ込み',5],['壁下塗り',10],['壁中塗り',10],
+['壁上塗り',10],['養生',8],['下地調整',12],['ライン出し',5],
+['サビスバルコニー',8],['検査・手直し・片付け',5]
+];
+let db;
+try{db=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){db=null}
+if(!db)db={config:{workers:5,hours:7},works:DEFAULTS.map(x=>({id:uid(),name:x[0],target:x[1]})),logs:[]};
+
+function uid(){return 'id-'+Date.now()+'-'+Math.random().toString(16).slice(2)}
+function $(id){return document.getElementById(id)}
+function today(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())}
+function fmt(n){return String(Math.round(n*100)/100)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function toast(t){const x=$('toast');x.textContent=t;x.style.display='block';clearTimeout(window.__toast);window.__toast=setTimeout(()=>x.style.display='none',1500)}
+function workName(id){const w=db.works.find(x=>x.id===id);return w?w.name:'削除された工程'}
+
+function show(view){
+ document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+ $('view-'+view).classList.add('active');
+ document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
+ if(view==='summary')renderSummary();
+ if(view==='settings')renderSettings();
+ window.scrollTo(0,0);
+}
+document.querySelectorAll('#nav button').forEach(b=>b.addEventListener('click',()=>show(b.dataset.view)));
+
+function renderWorkSelect(){
+ $('work').innerHTML=db.works.length ? db.works.map(w=>'<option value="'+w.id+'">'+esc(w.name)+'</option>').join('') : '<option value="">工程を先に追加してください</option>';
+}
+function preview(){
+ const p=+$('people').value||0,h=+$('hours').value||0;
+ $('preview').textContent=p&&h?'人工 = '+fmt(p*h/db.config.hours)+' 人工':'';
+}
+$('people').addEventListener('input',preview);$('hours').addEventListener('input',preview);
+$('clearForm').addEventListener('click',()=>{ $('people').value=''; $('hours').value='7'; $('note').value=''; preview(); });
+
+$('saveLog').addEventListener('click',function(){
+ const e={id:uid(),date:$('date').value||today(),site:$('site').value.trim(),worker:$('worker').value.trim(),
+ workId:$('work').value,people:+$('people').value,hours:+$('hours').value,note:$('note').value.trim()};
+ if(!e.workId){alert('工程を選択してください。');return}
+ if(!e.people||e.people<=0){alert('人数を入力してください。');return}
+ if(!e.hours||e.hours<=0){alert('作業時間を入力してください。');return}
+ db.logs.push(e);save();
+ $('people').value='';$('note').value='';preview();renderLogs();renderSummary();toast('記録を保存しました');
+});
+function renderLogs(){
+ const a=[...db.logs].sort((x,y)=>(y.date+y.id).localeCompare(x.date+x.id));
+ $('logList').innerHTML=a.length?a.slice(0,50).map(l=>'<div class="item"><div class="top"><div><div class="title">'+esc(workName(l.workId))+'</div><div class="meta">'+esc(l.date)+(l.site?' ・ '+esc(l.site):'')+(l.worker?' ・ '+esc(l.worker):'')+' ・ '+l.people+'人 ・ '+l.hours+'時間 ・ '+fmt(l.people*l.hours/db.config.hours)+'人工'+(l.note?' ・ '+esc(l.note):'')+'</div></div><button class="danger" data-del-log="'+l.id+'">削除</button></div></div>').join(''):'<p class="empty">まだ記録がありません。</p>';
+ document.querySelectorAll('[data-del-log]').forEach(b=>b.addEventListener('click',()=>{db.logs=db.logs.filter(x=>x.id!==b.dataset.delLog);save();renderLogs();renderSummary()}));
+}
+function stat(w){
+ const used=db.logs.filter(l=>l.workId===w.id).reduce((s,l)=>s+l.people*l.hours/db.config.hours,0);
+ const todayPeople=db.logs.filter(l=>l.workId===w.id&&l.date===today()).reduce((s,l)=>s+l.people,0);
+ const remain=Math.max(w.target-used,0),pct=w.target?Math.min(100,used/w.target*100):0;
+ return{used,remain,todayPeople,pct}
+}
+function renderSummary(){
+ const a=db.logs.filter(l=>l.date===today()),used=a.reduce((s,l)=>s+l.people,0);
+ $('sTotal').textContent=fmt(db.config.workers);$('sUsed').textContent=fmt(used);$('sFree').textContent=fmt(Math.max(db.config.workers-used,0));
+ $('sCount').textContent=new Set(a.map(l=>l.workId)).size;
+ $('summaryList').innerHTML=db.works.map(w=>{const s=stat(w);return '<div class="item"><div class="top"><div class="title">'+esc(w.name)+'</div><span class="badge">'+(s.remain<=0?'完了':'残り '+fmt(s.remain)+'人工')+'</span></div><div class="meta">目標 '+fmt(w.target)+' ・ 消化 '+fmt(s.used)+' ・ 本日 '+fmt(s.todayPeople)+'人</div><div class="progress"><div class="fill" style="width:'+s.pct+'%"></div></div></div>'}).join('')||'<p class="empty">工程がありません。</p>';
+}
+function renderSettings(){
+ $('cfgWorkers').value=db.config.workers;$('cfgHours').value=db.config.hours;
+ $('workList').innerHTML=db.works.map(w=>'<div class="item"><div class="top"><div><div class="title">'+esc(w.name)+'</div><div class="meta">目標 '+fmt(w.target)+'人工</div></div><button class="danger" data-del-work="'+w.id+'">削除</button></div></div>').join('')||'<p class="empty">工程がありません。</p>';
+ document.querySelectorAll('[data-del-work]').forEach(b=>b.addEventListener('click',()=>{if(confirm('この工程を削除しますか？')){db.works=db.works.filter(x=>x.id!==b.dataset.delWork);save();renderWorkSelect();renderSettings();renderSummary()}}));
+}
+$('saveConfig').addEventListener('click',()=>{
+ const workers=+$('cfgWorkers').value, hours=+$('cfgHours').value;
+ if(!Number.isFinite(workers)||workers<0){alert('総稼働可能人数を正しく入力してください。');return}
+ if(!Number.isFinite(hours)||hours<=0){alert('1人工の時間を正しく入力してください。');return}
+ db.config.workers=workers; db.config.hours=hours; save(); render(); toast('設定を保存しました');
+});
+$('addWork').addEventListener('click',()=>{const n=$('newName').value.trim(),t=+$('newTarget').value;if(!n||isNaN(t)){alert('工程名と目標人工を入力してください。');return}db.works.push({id:uid(),name:n,target:t});save();$('newName').value='';$('newTarget').value='';render();toast('工程を追加しました')});
+$('export').addEventListener('click',()=>{
+ const rows=[['日付','現場','作業者','工程','人数','時間','人工','備考'],...db.logs.map(l=>[l.date,l.site,l.worker,workName(l.workId),l.people,l.hours,fmt(l.people*l.hours/db.config.hours),l.note])];
+ const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');
+ const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='作業日報.csv';a.click();URL.revokeObjectURL(a.href);
+});
+$('reset').addEventListener('click',()=>{if(confirm('全データを初期化しますか？')){localStorage.removeItem(KEY);location.reload()}});
+function render(){renderWorkSelect();renderLogs();renderSummary();renderSettings();preview()}
+$('date').value=today();render();
+if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())).catch(()=>{}); if(window.caches)caches.keys().then(ks=>ks.forEach(k=>caches.delete(k))).catch(()=>{});}
+})();
+</script>
+</body>
+</html>
